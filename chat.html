@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        body {
+            margin: 10px;
+        }
+
+        #loader {
+            border: 10px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 10px solid #3498db;
+            width: 50px;
+            height: 50px;
+            animation: spin 2s linear infinite;
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        #responseContainer {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+            white-space: pre-wrap;
+        }
+
+        .code-block {
+            position: relative;
+            background-color: #f1f1f1;
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            overflow-x: auto;
+        }
+
+        .copy-button {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        .copy-button:hover {
+            background-color: #2980b9;
+        }
+    </style>
+</head>
+
+<body>
+    <input type="text" id="prompt" placeholder="Enter the prompt here">
+    <button onclick="startEventStream()">Submit</button>
+    <div id="loader"></div>
+    <div id="responseContainer"></div>
+    <script>
+        const api = "http://localhost:11434/api/chat";
+        const promptValue = document.getElementById("prompt");
+        const responseContainer = document.getElementById("responseContainer");
+        const loader = document.getElementById("loader");
+
+        let accumulatedContent = '';
+        let backTickStart = false;
+        let codeBlockContent = '';
+
+        const startEventStream = async () => {
+            responseContainer.innerHTML = "";
+            loader.style.display = "block";
+            accumulatedContent = ''; // Reset accumulated content
+
+            const res = {
+                "model": "llama3",
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": promptValue.value
+                    }
+                ]
+            };
+
+            try {
+                const response = await fetch(api, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(res)
+                });
+
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let done = false;
+
+                while (!done) {
+                    const { value, done: readerDone } = await reader.read();
+                    done = readerDone;
+                    const chunk = decoder.decode(value, { stream: true });
+
+                    const lines = chunk.split('\n').filter(line => line.trim());
+                    for (const line of lines) {
+                        const data = JSON.parse(line);
+                        if (data.done) {
+                            loader.style.display = "none";
+                            appendFormattedResponse(accumulatedContent); // Append the full response
+                        } else {
+                            accumulatedContent += data.message.content; // Accumulate content
+                            appendFormattedResponse(data.message.content); // Display content in real-time
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Fetch error:', error);
+                loader.style.display = "none";
+            }
+        };
+
+        const escapeHtml = (text) => {
+            return text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;");
+        };
+
+        const formatResponse = (response) => {
+            if (!response || typeof response !== 'string') {
+                return ''; // Return empty string if response is not valid
+            }
+
+            response = response.replace("`\n", '');
+
+            if (response.includes("``") && !backTickStart) {
+                backTickStart = true;
+                response = response.replace("``", '');
+                codeBlockContent = codeBlockContent.concat(response);
+                return '';
+            } else if (response.includes("``") && backTickStart) {
+                backTickStart = false;
+                response = response.replace("``", '');
+                codeBlockContent = codeBlockContent.concat(response);
+                const uniqueId = `code-${Math.random().toString(36).substr(2, 9)}`;
+                const formattedCodeBlock = `<div class="code-block" id="${uniqueId}"><button class="copy-button" onclick="copyToClipboard('${uniqueId}')">Copy</button><pre>${escapeHtml(codeBlockContent)}</pre></div>`;
+                codeBlockContent = '';
+                return formattedCodeBlock;
+            } else if (backTickStart) {
+                codeBlockContent += response;
+                return '';
+            } else {
+                return response.replace(/\*\*(.*?)\*\*/g, "<b>$1</b>");
+            }
+        };
+
+        const appendFormattedResponse = (response) => {
+            console.log(response);
+            const formattedResponse = formatResponse(response);
+            if (formattedResponse) {
+                responseContainer.innerHTML += formattedResponse;
+            }
+
+            const copyButtons = responseContainer.querySelectorAll('.copy-button');
+            copyButtons.forEach(button => {
+                if (!button.hasAttribute('data-listener')) {
+                    button.addEventListener('click', () => {
+                        copyToClipboard(button.parentElement.id);
+                    });
+                    button.setAttribute('data-listener', 'true');
+                }
+            });
+        };
+
+        const copyToClipboard = (id) => {
+            const codeBlock = document.getElementById(id);
+            const textArea = document.createElement("textarea");
+            textArea.value = codeBlock.querySelector("pre").textContent;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand("copy");
+            document.body.removeChild(textArea);
+            alert("Code copied to clipboard!");
+        };
+    </script>
+</body>
+
+</html>
