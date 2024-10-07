@@ -4,10 +4,56 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Llama 3.0</title>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Sixtyfour+Convergence&family=Sora:wght@100..800&display=swap');
         body {
             margin: 10px;
+            background-color: black;
+        }
+
+        .input-container{
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+        }
+
+        #prompt::-webkit-scrollbar{
+            opacity: 20%;
+        }
+
+        #prompt{
+            width: 100%;
+            margin-left: 20px;
+            margin-right: 20px;
+            height: max-content;
+            max-height: 200px;
+            min-height: 30px;
+            font-size: 18px;
+            line-height: 100%;
+            padding-left: 20px;
+            padding-right: 20px;
+            padding-top: 20px;
+            padding-bottom: 10px;
+            text-align: left;
+            border-radius: 50px;
+            resize: vertical;
+        }
+
+        .submit{
+            width:50px;
+            height: 50px;
+            font-size: 40px;
+            background-color: rgb(88, 88, 88);
+            color: white;
+            border:none;
+            border-radius: 48%;
+            cursor: pointer;
+        }
+
+        .submit:hover{
+            background-color: gray;
         }
 
         #loader {
@@ -36,23 +82,31 @@
 
         #responseContainer {
             margin-top: 20px;
+            margin-left: 40px;
+            margin-right: 40px;
             padding: 10px;
-            border: 1px solid #ddd;
+            font-size: 20px;
             border-radius: 5px;
-            background-color: #f9f9f9;
             white-space: pre-wrap;
+            color:white;
+            font-family: "Sora", sans-serif;
+            font-optical-sizing: auto;
+            font-weight: 300;
+            font-style: normal;
         }
 
         .code-block {
             position: relative;
-            background-color: #f1f1f1;
-            border: 1px solid #ccc;
+            background-color: #6f6f6f;
             padding: 10px;
             margin-top: 10px;
             border-radius: 5px;
-            font-family: monospace;
             white-space: pre-wrap;
             overflow-x: auto;
+            font-family: "Sora", sans-serif;
+            font-optical-sizing: auto;
+            font-weight: 300;
+            font-style: normal;
         }
 
         .copy-button {
@@ -74,8 +128,10 @@
 </head>
 
 <body>
-    <input type="text" id="prompt" placeholder="Enter the prompt here">
-    <button onclick="startEventStream()">Submit</button>
+    <div class="input-container">
+        <textarea type="text" id="prompt" placeholder="Enter the prompt here"></textarea>
+        <button class="submit" onclick="startEventStream()">&#8593;</button>
+    </div>
     <div id="loader"></div>
     <div id="responseContainer"></div>
     <script>
@@ -154,7 +210,7 @@
                 response = response.replace("``", '');
                 codeBlockContent = codeBlockContent.concat(response);
                 const uniqueId = `code-${Math.random().toString(36).substr(2, 9)}`;
-                const formattedCodeBlock = `<div class="code-block" id="${uniqueId}"><button class="copy-button" onclick="copyToClipboard('${uniqueId}')">Copy</button><pre>${escapeHtml(codeBlockContent)}</pre></div>`;
+                const formattedCodeBlock = `<div class="code-block" id="${uniqueId}"><button class="copy-button" onclick="copyToClipboard('${uniqueId}')">Copy</button><code class="prettyprint">${escapeHtml(codeBlockContent)}</code></div>`;
                 codeBlockContent = '';
                 return formattedCodeBlock;
             } else if (backTickStart) {
@@ -186,7 +242,7 @@
         const copyToClipboard = (id) => {
             const codeBlock = document.getElementById(id);
             const textArea = document.createElement("textarea");
-            textArea.value = codeBlock.querySelector("pre").textContent;
+            textArea.value = codeBlock.querySelector("code").textContent;
             document.body.appendChild(textArea);
             textArea.select();
             document.execCommand("copy");
